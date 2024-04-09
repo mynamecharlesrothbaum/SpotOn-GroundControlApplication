@@ -123,6 +123,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         mav_work.setModeRTL();
     }
 
+    public void onArmBtn(View view) {mav_work.forceArm();}
+
     public void onRebootBtn(View view) {
         long ts = SystemClock.elapsedRealtime();
         if (ts - reboot_ts > 3000) {

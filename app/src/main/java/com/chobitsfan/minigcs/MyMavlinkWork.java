@@ -118,6 +118,24 @@ public class MyMavlinkWork implements Runnable {
         }
     }
 
+    public void forceArm() {
+        try {
+            // Create a CommandLong MAVLink message to arm the vehicle.
+            // param1 = 1 (to arm the vehicle),
+            // param2 = 21196 (magic number to bypass pre-arm checks and force arm)
+            CommandLong command = CommandLong.builder()
+                    .command(MavCmd.MAV_CMD_COMPONENT_ARM_DISARM)
+                    .param1(1)
+                    .param2(21196)
+                    .build();
+
+            // Send the command to the vehicle.
+            mav_conn.send1(255, 0, command);
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send force arm command: " + e.getMessage());
+        }
+    }
+
     public void rebootFC() {
         try {
             mav_conn.send1(255, 0, CommandLong.builder().command(MavCmd.MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN).param1(1).build());
