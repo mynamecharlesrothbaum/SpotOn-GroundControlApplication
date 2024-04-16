@@ -21,9 +21,11 @@ import io.dronefleet.mavlink.common.GpsRawInt;
 import io.dronefleet.mavlink.common.Heartbeat;
 import io.dronefleet.mavlink.common.MavAutopilot;
 import io.dronefleet.mavlink.common.MavCmd;
+import io.dronefleet.mavlink.common.MavFrame;
 import io.dronefleet.mavlink.common.MavModeFlag;
 import io.dronefleet.mavlink.common.MavParamType;
 import io.dronefleet.mavlink.common.MavType;
+import io.dronefleet.mavlink.common.MissionItemInt;
 import io.dronefleet.mavlink.common.MissionItemReached;
 import io.dronefleet.mavlink.common.ParamRequestRead;
 import io.dronefleet.mavlink.common.ParamSet;
@@ -84,17 +86,67 @@ public class MyMavlinkWork implements Runnable {
         t1.start();
     }
 
-    public void setModeLand() {
+    public void takeoff() {
         try {
-            mav_conn.send1(255,0, vehicle.Land());
+            CommandLong takeoffCommand = CommandLong.builder()
+                    .command(MavCmd.MAV_CMD_NAV_TAKEOFF)
+                    .param7(3) // set to desired altitude in meters
+                    .build();
+
+            mav_conn.send1(255, 0, takeoffCommand);
         } catch (IOException e) {
-            if (MyAppConfig.DEBUG) Log.d("chobits", e.getMessage());
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send takeoff command: " + e.getMessage());
         }
     }
 
-    public void setModeRTL() {
+    public void setModeGuided() {
         try {
-            mav_conn.send1(255,0, vehicle.RTL());
+            mav_conn.send1(255,0, vehicle.Guided());
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to set mode to Guided: " + e.getMessage());
+        }
+    }
+    public void setModeStabilize() {
+        try {
+            mav_conn.send1(255,0, vehicle.Stabilize());
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to set mode to Stabilize: " + e.getMessage());
+        }
+    }
+
+    public void sendLocalWaypoint() {
+        float lat = 2;
+        float lon = 2;
+        float alt = 4;
+        try {
+            MissionItemInt waypointCommand = MissionItemInt.builder()
+                    .targetSystem(255) // System ID for the target system/vehicle
+                    .targetComponent(0) // Component ID for the target component
+                    .seq(0) // Sequence number of the waypoint
+                    .frame(MavFrame.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT) // Use relative altitude
+                    .command(MavCmd.MAV_CMD_NAV_WAYPOINT) // Command to navigate to a waypoint
+                    .current(1) // Set to 1 to indicate this is the current waypoint
+                    .autocontinue(1) // Set to 1 to allow auto-continuing to the next waypoint
+                    .param1(0) // Hold time in seconds (ignored for simple waypoint navigation)
+                    .param2(0) // Acceptance radius in meters (if the vehicle is within this distance of the waypoint, consider it reached)
+                    .param3(0) // Pass-through waypoint (0 to fly directly to the waypoint)
+                    .param4(0) // Desired yaw angle at waypoint (ignored unless YAW_ANGLE is used)
+                    .x((int) (lat * 1E7)) // Latitude in decimal degrees * 1E7
+                    .y((int) (lon * 1E7)) // Longitude in decimal degrees * 1E7
+                    .z(alt) // Altitude in meters
+                    .build();
+
+            mav_conn.send1(255, 0, waypointCommand);
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send local waypoint: " + e.getMessage());
+        }
+    }
+
+
+
+    public void setModeLand() {
+        try {
+            mav_conn.send1(255,0, vehicle.Land());
         } catch (IOException e) {
             if (MyAppConfig.DEBUG) Log.d("chobits", e.getMessage());
         }
@@ -120,16 +172,12 @@ public class MyMavlinkWork implements Runnable {
 
     public void forceArm() {
         try {
-            // Create a CommandLong MAVLink message to arm the vehicle.
-            // param1 = 1 (to arm the vehicle),
-            // param2 = 21196 (magic number to bypass pre-arm checks and force arm)
             CommandLong command = CommandLong.builder()
                     .command(MavCmd.MAV_CMD_COMPONENT_ARM_DISARM)
-                    .param1(1)
-                    .param2(21196)
+                    .param1(1) // param1 = 1 (to arm the vehicle),
+                    .param2(21196) // param2 = 21196 (magic number to bypass pre-arm checks and force arm)
                     .build();
 
-            // Send the command to the vehicle.
             mav_conn.send1(255, 0, command);
         } catch (IOException e) {
             if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send force arm command: " + e.getMessage());

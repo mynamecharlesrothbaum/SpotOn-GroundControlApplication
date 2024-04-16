@@ -112,6 +112,64 @@
             android:onClick="onArmBtn"
             android:text="Force Arm" />
 
+        <Button
+            android:id="@+id/takeoff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="onTakeoffBtn"
+            android:text="Takeoff" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/guided"
+                android:layout_width="198dp"
+                android:layout_height="wrap_content"
+                android:onClick="onGuidedBtn"
+                android:text="set mode GUIDED" />
+
+            <Button
+                android:id="@+id/stabilize"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:onClick="onStabilizeBtn"
+                android:text="set mode STABILIZE" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/sendWaypoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="onSendLocalWaypoint"
+            android:text="Button" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <EditText
+                android:id="@+id/waypointInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter waypoint (format: lat,lon,alt)"
+                android:inputType="text" />
+
+            <Button
+                android:id="@+id/submitWaypointButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="Submit Waypoint" />
+
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
@@ -186,6 +244,11 @@
             android:onClick="onRebootBtn"
             android:text="Reboot FC"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"></LinearLayout>
 
     </LinearLayout>
 

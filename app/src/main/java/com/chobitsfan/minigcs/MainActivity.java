@@ -119,11 +119,17 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         mav_work.setModeLand();
     }
 
-    public void onRTLBtn(View view) {
-        mav_work.setModeRTL();
+    public void onArmBtn(View view) {
+        mav_work.forceArm();
     }
 
-    public void onArmBtn(View view) {mav_work.forceArm();}
+    public void onTakeoffBtn(View view){ mav_work.takeoff(); }
+
+    public void onGuidedBtn(View view){ mav_work.setModeGuided(); }
+
+    public void onStabilizeBtn(View view){ mav_work.setModeStabilize(); }
+
+    public void onSendLocalWaypoint(View view){ mav_work.sendLocalWaypoint(); }
 
     public void onRebootBtn(View view) {
         long ts = SystemClock.elapsedRealtime();
@@ -136,6 +142,23 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             Toast.makeText(this, "rebooting FC", Toast.LENGTH_SHORT).show();
         }
     }
+
+    private void onSubmitWaypoint(String waypointText) {
+        String[] parts = waypointText.split(",");
+        if(parts.length == 3) {
+            try {
+                float lat = Float.parseFloat(parts[0].trim());
+                float lon = Float.parseFloat(parts[1].trim());
+                float alt = Float.parseFloat(parts[2].trim());
+                mav_work.sendLocalWaypoint();
+            } catch(NumberFormatException e) {
+                Toast.makeText(MainActivity.this, "Invalid waypoint format", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(MainActivity.this, "Waypoint format should be lat,lon,alt", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 
     public void onReadParam(View view) {
         TextView tv = (TextView)findViewById(R.id.param_name);
@@ -194,6 +217,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         serialListener = new MyUSBSerialListener(serial_is, serial_os);
         Thread t2 = new Thread(serialListener);
         t2.start();
+
 
         detectMyDevice();
     }
