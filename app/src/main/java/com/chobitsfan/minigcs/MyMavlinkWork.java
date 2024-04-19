@@ -114,10 +114,7 @@ public class MyMavlinkWork implements Runnable {
         }
     }
 
-    public void sendLocalWaypoint() {
-        float lat = 2;
-        float lon = 2;
-        float alt = 4;
+    public void sendLocalWaypoint(float lat, float lon, float alt) {
         try {
             MissionItemInt waypointCommand = MissionItemInt.builder()
                     .targetSystem(255) // System ID for the target system/vehicle
@@ -181,6 +178,19 @@ public class MyMavlinkWork implements Runnable {
             mav_conn.send1(255, 0, command);
         } catch (IOException e) {
             if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send force arm command: " + e.getMessage());
+        }
+    }
+    public void disarm(){
+        try{
+            CommandLong command = CommandLong.builder()
+                    .command(MavCmd.MAV_CMD_COMPONENT_ARM_DISARM)
+                    .param1(0) // param1 = 1 (to arm the vehicle),
+                    .param2(0)
+                    .build();
+
+            mav_conn.send1(255, 0, command);
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to disarm: " + e.getMessage());
         }
     }
 

@@ -2,12 +2,14 @@ package com.chobitsfan.minigcs;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -16,10 +18,33 @@ import android.speech.tts.TextToSpeech;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.preference.PreferenceManager;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import org.osmdroid.api.IMapController;
+import org.osmdroid.config.Configuration;
+import org.osmdroid.tileprovider.cachemanager.CacheManager;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.BoundingBox;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.Projection;
+
+import java.io.File;
+import java.util.ArrayList;
 
 import com.hoho.android.usbserial.driver.CdcAcmSerialDriver;
 import com.hoho.android.usbserial.driver.ProbeTable;
@@ -35,12 +60,14 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
+    private MapView map = null;
     UsbSerialPort port = null;
     SerialInputOutputManager usbIoManager;
     MyMavlinkWork mav_work;
     MyUSBSerialListener serialListener;
     long reboot_ts = 0;
     TextToSpeech tts;
+
     Handler ui_handler = new Handler(Looper.myLooper()) {
         @Override
         public void handleMessage(Message msg) {
@@ -73,25 +100,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                     tv = (TextView)findViewById(R.id.gps_satellites);
                     tv.setText(Html.fromHtml("<small>Satellites</small><br><big><b>"+data.getInt("satellites")+"</b></big>", Html.FROM_HTML_MODE_COMPACT));
                     break;
-                case MyMavlinkWork.UI_PARAM_VAL:
-                    data = msg.getData();
-                    tv = (TextView)findViewById(R.id.param_val);
-                    if (((TextView)findViewById(R.id.param_name)).getText().toString().equalsIgnoreCase(data.getString("name"))) {
-                        if (data.getBoolean("is_float")) {
-                            tv.setText(Float.toString(data.getFloat("val")));
-                        } else {
-                            tv.setText(Integer.toString(data.getInt("val")));
-                        }
-                    } else if (data.getString("name").equals("chobits_param_rw_failed")) {
-                        tv.setHint("failed");
-                        this.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                ((TextView)findViewById(R.id.param_val)).setHint("parameter value");
-                            }
-                        }, 3000);
-                    }
-                    break;
                 case MyMavlinkWork.UI_GLOBAL_POS:
                     tv = (TextView)findViewById(R.id.alt_status);
                     tv.setText(Html.fromHtml(String.format("<small>Altitude</small><br><big><b>%.1f</b></big><small>m</small>", msg.arg2*0.001), Html.FROM_HTML_MODE_COMPACT));
@@ -105,6 +113,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             }
         }
     };
+
     View.OnFocusChangeListener myClearHint = new View.OnFocusChangeListener() {
         @Override
         public void onFocusChange(View view, boolean hasFocus) {
@@ -127,9 +136,10 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     public void onGuidedBtn(View view){ mav_work.setModeGuided(); }
 
+    public void onDisarmBtn(View view){mav_work.disarm();}
+
     public void onStabilizeBtn(View view){ mav_work.setModeStabilize(); }
 
-    public void onSendLocalWaypoint(View view){ mav_work.sendLocalWaypoint(); }
 
     public void onRebootBtn(View view) {
         long ts = SystemClock.elapsedRealtime();
@@ -143,59 +153,46 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    private void onSubmitWaypoint(String waypointText) {
-        String[] parts = waypointText.split(",");
-        if(parts.length == 3) {
-            try {
-                float lat = Float.parseFloat(parts[0].trim());
-                float lon = Float.parseFloat(parts[1].trim());
-                float alt = Float.parseFloat(parts[2].trim());
-                mav_work.sendLocalWaypoint();
-            } catch(NumberFormatException e) {
-                Toast.makeText(MainActivity.this, "Invalid waypoint format", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Toast.makeText(MainActivity.this, "Waypoint format should be lat,lon,alt", Toast.LENGTH_SHORT).show();
-        }
+    public void onSubmitWaypoint(View view) {
+        float lat = 0;
+        float lon = 0;
+        float alt = 0;
+        mav_work.sendLocalWaypoint(lat,lon,alt);
     }
 
 
-    public void onReadParam(View view) {
-        TextView tv = (TextView)findViewById(R.id.param_name);
-        String param_name = tv.getText().toString();
-        if (!param_name.equals("")) {
-            tv = (TextView)findViewById(R.id.param_val);
-            tv.setText("");
-            tv.setHint("reading...");
-            mav_work.readParam(param_name);
-        }
+
+    public void setupMapTileStorage() {
+        // Setting the user agent to avoid getting banned from the OSM servers
+        Configuration.getInstance().setUserAgentValue(BuildConfig.APPLICATION_ID);
+
+        // Getting the external storage directory
+        File osmdroidBasePath = new File(Environment.getExternalStorageDirectory(), "osmdroid");
+        File osmdroidTileCache = new File(osmdroidBasePath, "tile");
+        Configuration.getInstance().setOsmdroidBasePath(osmdroidBasePath);
+        Configuration.getInstance().setOsmdroidTileCache(osmdroidTileCache);
     }
 
-    public void onWriteParam(View view) {
-        TextView tv = (TextView)findViewById(R.id.param_name);
-        String param_name = tv.getText().toString();
-        if (param_name.equals("")) return;
-        tv = (TextView)findViewById(R.id.param_val);
-        float param_val;
-        try {
-            param_val = Float.parseFloat(tv.getText().toString());
-        } catch (NumberFormatException e) {
-            return;
-        }
-        tv.setText("");
-        tv.setHint("writing...");
-        mav_work.writeParam(param_name, param_val);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //get permission to use location and storage
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.ACCESS_FINE_LOCATION},
+                    1);  // 1 is requestCode, a unique identifier for this request
+        }
+
+
+
         tts = new TextToSpeech(this, this);
 
         ((TextView)findViewById(R.id.status_txt)).setMovementMethod(new ScrollingMovementMethod());
-        findViewById(R.id.param_val).setOnFocusChangeListener(myClearHint);
 
         PipedInputStream mav_work_is = new PipedInputStream();
         PipedOutputStream serial_os = new PipedOutputStream();
@@ -218,8 +215,96 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         Thread t2 = new Thread(serialListener);
         t2.start();
 
+        Context ctx = getApplicationContext();
+        Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
+
+        MapView map = findViewById(R.id.osmmap);
+        map.setTileSource(TileSourceFactory.MAPNIK);
+        map.setMultiTouchControls(true);
+        map.setBuiltInZoomControls(false);
+
+        map.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                Projection projection = map.getProjection();
+                GeoPoint geoPoint = (GeoPoint) projection.fromPixels((int) event.getX(), (int) event.getY());
+                handleGeoPoint(geoPoint);
+                return true;
+            }
+            return false;
+        });
+
+        IMapController mapController = map.getController();
+        mapController.setZoom(10);
+        GeoPoint startPoint = new GeoPoint(38.49480, -106.99539);
+        mapController.setCenter(startPoint);
+
+
+
+
+        //requestPermissions(arrayOf(
+                // if you need to show the current location, uncomment the line below
+                // Manifest.permission.ACCESS_FINE_LOCATION,
+                // WRITE_EXTERNAL_STORAGE is required in order to show the map
+               // Manifest.permission.WRITE_EXTERNAL_STORAGE
+        //));
+
+
 
         detectMyDevice();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initializeMapAndDownloadTiles();
+            } else {
+                Toast.makeText(this, "Permissions denied, can't operate fully.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void handleGeoPoint(GeoPoint geoPoint) {
+        Toast.makeText(this, "Lat: " + geoPoint.getLatitude() + ", Lon: " + geoPoint.getLongitude(), Toast.LENGTH_SHORT).show();
+    }
+    private void initializeMapAndDownloadTiles() {
+        MapView map = findViewById(R.id.osmmap);
+        map.setTileSource(TileSourceFactory.MAPNIK);
+        map.setBuiltInZoomControls(true);
+        map.setMultiTouchControls(true);
+
+        BoundingBox bbox = new BoundingBox(38.56, -106.89, 38.47, -106.97);
+        CacheManager cacheManager = new CacheManager(map);
+        cacheManager.downloadAreaAsync(this, bbox, 10, 19);  // Assuming permissions are already granted
+    }
+
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        //this will refresh the osmdroid configuration on resuming.
+        //if you make changes to the configuration, use
+        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        //Configuration.getInstance().save(this, prefs);
+        map.onPause();  //needed for compass, my location overlays, v6.0.0 and up
+    }
+
+    private void requestPermissionsIfNecessary(String[] permissions) {
+        ArrayList<String> permissionsToRequest = new ArrayList<>();
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(this, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // Permission is not granted
+                permissionsToRequest.add(permission);
+            }
+        }
+       /* if (permissionsToRequest.size > 0) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    permissionsToRequest.toArray(new String[0]),
+                    REQUEST_PERMISSIONS_REQUEST_CODE);
+        }*/
     }
 
     @Override
