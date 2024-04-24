@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
+import android.provider.Contacts;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -15,6 +16,7 @@ import java.util.Date;
 
 import io.dronefleet.mavlink.MavlinkConnection;
 import io.dronefleet.mavlink.MavlinkMessage;
+import io.dronefleet.mavlink.common.CommandInt;
 import io.dronefleet.mavlink.common.CommandLong;
 import io.dronefleet.mavlink.common.GlobalPositionInt;
 import io.dronefleet.mavlink.common.GpsRawInt;
@@ -30,12 +32,16 @@ import io.dronefleet.mavlink.common.MissionItemReached;
 import io.dronefleet.mavlink.common.ParamRequestRead;
 import io.dronefleet.mavlink.common.ParamSet;
 import io.dronefleet.mavlink.common.ParamValue;
+import io.dronefleet.mavlink.common.PositionTargetTypemask;
 import io.dronefleet.mavlink.common.SetMode;
 import io.dronefleet.mavlink.common.Statustext;
 import io.dronefleet.mavlink.common.SysStatus;
+import io.dronefleet.mavlink.common.SetPositionTargetGlobalInt;
+import io.dronefleet.mavlink.util.EnumValue;
+
 
 public class MyMavlinkWork implements Runnable {
-    MavlinkConnection mav_conn;
+    static MavlinkConnection mav_conn;
     Handler ui_handler;
     Vehicle vehicle = Vehicle.getInstance(MavAutopilot.MAV_AUTOPILOT_ARDUPILOTMEGA, MavType.MAV_TYPE_QUADROTOR);
     static String[] GPS_FIX_TYPE = {"No GPS", "No Fix", "2D Fix", "3D Fix", "DGPS", "RTK Float", "RTK Fix"};
@@ -86,6 +92,42 @@ public class MyMavlinkWork implements Runnable {
         t1.start();
     }
 
+    public static void sendGlobalWaypoint(double latitude, double longitude, int alt) {
+        try {
+            CommandLong sendWaypointCommand = CommandLong.builder()
+                    .command(MavCmd.MAV_CMD_NAV_WAYPOINT)
+                    .param1(3)
+                    .param2(0)
+                    .param3(0)
+                    .param4(0)
+                    .param5((float)latitude*1000)
+                    .param6((float)longitude*1000)
+                    .param7(0)
+                    .build();
+
+            mav_conn.send1(255, 0, sendWaypointCommand);
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.e("chobits", "Failed to send global waypoint: " + e.getMessage());
+        }
+    }
+
+    public static void sendGlobalWaypoint1(double latitude, double longitude, int alt) {
+        try {
+            SetPositionTargetGlobalInt positionTarget = new SetPositionTargetGlobalInt.Builder()
+                    .timeBootMs(0)
+                    .coordinateFrame(MavFrame.MAV_FRAME_GLOBAL_INT)
+                    .typeMask() // Specify what fields are ignored
+                    .latInt(345678901) // Example latitude
+                    .lonInt(-987654321) // Example longitude
+                    .alt(500.5f) // Altitude in meters
+                    .build();
+
+            mav_conn.send1(255, 0, positionTarget);
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.e("chobits", "Failed to send global waypoint: " + e.getMessage());
+        }
+    }
+
     public void takeoff() {
         try {
             CommandLong takeoffCommand = CommandLong.builder()
@@ -106,6 +148,13 @@ public class MyMavlinkWork implements Runnable {
             if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to set mode to Guided: " + e.getMessage());
         }
     }
+    public void setModeAuto() {
+        try {
+            mav_conn.send1(255,0, vehicle.Auto());
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to set mode to Guided: " + e.getMessage());
+        }
+    }
     public void setModeStabilize() {
         try {
             mav_conn.send1(255,0, vehicle.Stabilize());
@@ -114,28 +163,34 @@ public class MyMavlinkWork implements Runnable {
         }
     }
 
-    public void sendLocalWaypoint(float lat, float lon, float alt) {
+    public void sendLocalWaypoint() {
+        float latitude = 38;
+        float longitude = -106;
+        float altitude = 3;
         try {
+            // Construct a waypoint command using global coordinates but intended for relative movement or specific local handling
             MissionItemInt waypointCommand = MissionItemInt.builder()
-                    .targetSystem(255) // System ID for the target system/vehicle
-                    .targetComponent(0) // Component ID for the target component
+                    .targetSystem(255) // System ID for the target system/vehicle; often 1 in practical scenarios
+                    .targetComponent(0) // Component ID for the main flight controller
                     .seq(0) // Sequence number of the waypoint
-                    .frame(MavFrame.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT) // Use relative altitude
+                    .frame(MavFrame.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT) // Use global position but with altitude relative to home
                     .command(MavCmd.MAV_CMD_NAV_WAYPOINT) // Command to navigate to a waypoint
-                    .current(1) // Set to 1 to indicate this is the current waypoint
-                    .autocontinue(1) // Set to 1 to allow auto-continuing to the next waypoint
-                    .param1(0) // Hold time in seconds (ignored for simple waypoint navigation)
-                    .param2(0) // Acceptance radius in meters (if the vehicle is within this distance of the waypoint, consider it reached)
-                    .param3(0) // Pass-through waypoint (0 to fly directly to the waypoint)
-                    .param4(0) // Desired yaw angle at waypoint (ignored unless YAW_ANGLE is used)
-                    .x((int) (lat * 1E7)) // Latitude in decimal degrees * 1E7
-                    .y((int) (lon * 1E7)) // Longitude in decimal degrees * 1E7
-                    .z(alt) // Altitude in meters
+                    .current(1) // Set this waypoint as active
+                    .autocontinue(1) // Allow auto-continuing to subsequent waypoints if any
+                    .param1(0) // Hold time at waypoint
+                    .param2(0) // Acceptance radius in meters; if zero, default is used
+                    .param3(0) // Pass-through waypoint; no loiter around the waypoint
+                    .param4(0) // Yaw angle; ignored unless specified
+                    .x((int) (latitude * 1E7)) // Latitude in decimal degrees, multiplied by 1E7 for MAVLink protocol
+                    .y((int) (longitude * 1E7)) // Longitude in decimal degrees, multiplied by 1E7
+                    .z(altitude) // Altitude in meters
                     .build();
 
+            // Send the waypoint command to the vehicle
             mav_conn.send1(255, 0, waypointCommand);
         } catch (IOException e) {
-            if (MyAppConfig.DEBUG) Log.d("chobits", "Failed to send local waypoint: " + e.getMessage());
+            // Log any errors for debugging purposes
+            if (MyAppConfig.DEBUG) Log.e("chobits", "Failed to send local waypoint: " + e.getMessage());
         }
     }
 
@@ -144,6 +199,23 @@ public class MyMavlinkWork implements Runnable {
     public void setModeLand() {
         try {
             mav_conn.send1(255,0, vehicle.Land());
+        } catch (IOException e) {
+            if (MyAppConfig.DEBUG) Log.d("chobits", e.getMessage());
+        }
+    }
+
+    public void setGPSOrigin(){
+        try {
+            CommandInt setOriginCommand = CommandInt.builder()
+                    .targetSystem(255) // System ID for the target system/vehicle
+                    .targetComponent(0)
+                    .frame(MavFrame.MAV_FRAME_GLOBAL)
+                    .command(MavCmd.MAV_CMD_DO_SET_HOME)
+                    .param1(0)
+                    .build();
+
+            mav_conn.send1(255, 0, setOriginCommand);
+
         } catch (IOException e) {
             if (MyAppConfig.DEBUG) Log.d("chobits", e.getMessage());
         }
@@ -296,8 +368,8 @@ public class MyMavlinkWork implements Runnable {
             } else if (msg_payload instanceof GlobalPositionInt) {
                 last_global_pos_ts = SystemClock.elapsedRealtime();
                 GlobalPositionInt global_pos = (GlobalPositionInt)msg_payload;
-                Message ui_msg = ui_handler.obtainMessage(UI_GLOBAL_POS, global_pos.alt(), global_pos.relativeAlt());
-                ui_handler.sendMessage(ui_msg);
+                Message loc_msg = ui_handler.obtainMessage(UI_GLOBAL_POS, global_pos.lat(), global_pos.lon());
+                ui_handler.sendMessage(loc_msg);
             } else if (msg_payload instanceof ParamValue) {
                 ParamValue p_val = (ParamValue)msg_payload;
                 if (MyAppConfig.DEBUG) Log.d("chobits", "param val " + p_val.paramId() + ":" + p_val.paramValue());

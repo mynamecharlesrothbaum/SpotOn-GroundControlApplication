@@ -6,6 +6,7 @@ import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Drawable;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
@@ -18,6 +19,7 @@ import android.speech.tts.TextToSpeech;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -42,6 +44,8 @@ import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.Projection;
+import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.Overlay;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -56,17 +60,20 @@ import com.hoho.android.usbserial.util.SerialInputOutputManager;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
-    private MapView map = null;
+    MapView map = null;
     UsbSerialPort port = null;
     SerialInputOutputManager usbIoManager;
     MyMavlinkWork mav_work;
     MyUSBSerialListener serialListener;
     long reboot_ts = 0;
     TextToSpeech tts;
+    private Marker lastMarker = null;
+
 
     Handler ui_handler = new Handler(Looper.myLooper()) {
         @Override
@@ -101,11 +108,28 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                     tv.setText(Html.fromHtml("<small>Satellites</small><br><big><b>"+data.getInt("satellites")+"</b></big>", Html.FROM_HTML_MODE_COMPACT));
                     break;
                 case MyMavlinkWork.UI_GLOBAL_POS:
-                    tv = (TextView)findViewById(R.id.alt_status);
-                    tv.setText(Html.fromHtml(String.format("<small>Altitude</small><br><big><b>%.1f</b></big><small>m</small>", msg.arg2*0.001), Html.FROM_HTML_MODE_COMPACT));
-                    tv = (TextView)findViewById(R.id.alt_msl_status);
-                    tv.setText(Html.fromHtml(String.format("<small>Altitude MSL</small><br><big><b>%.1f</b></big><small>m</small>", msg.arg1*0.001), Html.FROM_HTML_MODE_COMPACT));
+                    if (map != null) {
+                        if (lastMarker != null) {
+                            map.getOverlays().remove(lastMarker);
+                        }
+
+                        Drawable icon = getResources().getDrawable(R.drawable.uav);
+                        Marker startMarker = new Marker(map);
+                        GeoPoint currentPosition = new GeoPoint(msg.arg1 / 1E7, msg.arg2 / 1E7);
+
+                        startMarker.setPosition(currentPosition);
+                        startMarker.setIcon(icon);
+                        startMarker.setTitle("Marker Title");
+
+                        // Add the new marker to the map
+                        map.getOverlays().add(startMarker);
+                        map.invalidate(); // Refresh the map
+
+                        // Update the lastMarker reference to the new marker
+                        lastMarker = startMarker;
+                    }
                     break;
+
                 case MyMavlinkWork.UI_AP_NAME:
                     tv = (TextView)findViewById(R.id.ap_name);
                     tv.setText((String)msg.obj);
@@ -138,7 +162,14 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     public void onDisarmBtn(View view){mav_work.disarm();}
 
-    public void onStabilizeBtn(View view){ mav_work.setModeStabilize(); }
+    public void onStabilizeBtn(View view){ mav_work.setModeAuto(); }
+
+    public void onSendWaypoint(View view){
+        mav_work.setGPSOrigin();
+        MyMavlinkWork.sendGlobalWaypoint1(38.54, -106.92, 2);
+        Toast.makeText(this, "sending GLOBAL waypoint", Toast.LENGTH_SHORT).show();
+    }
+
 
 
     public void onRebootBtn(View view) {
@@ -157,7 +188,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         float lat = 0;
         float lon = 0;
         float alt = 0;
-        mav_work.sendLocalWaypoint(lat,lon,alt);
+        mav_work.sendLocalWaypoint();
     }
 
 
@@ -174,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     }
 
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -218,10 +250,11 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         Context ctx = getApplicationContext();
         Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
 
-        MapView map = findViewById(R.id.osmmap);
+        map = findViewById(R.id.osmmap);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
         map.setBuiltInZoomControls(false);
+
 
         map.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_UP) {
@@ -234,7 +267,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         });
 
         IMapController mapController = map.getController();
-        mapController.setZoom(10);
+        mapController.setZoom(13);
         GeoPoint startPoint = new GeoPoint(38.49480, -106.99539);
         mapController.setCenter(startPoint);
 
@@ -267,9 +300,11 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private void handleGeoPoint(GeoPoint geoPoint) {
         Toast.makeText(this, "Lat: " + geoPoint.getLatitude() + ", Lon: " + geoPoint.getLongitude(), Toast.LENGTH_SHORT).show();
+        MyMavlinkWork.sendGlobalWaypoint(geoPoint.getLatitude(), geoPoint.getLongitude(), 3);
     }
     private void initializeMapAndDownloadTiles() {
         MapView map = findViewById(R.id.osmmap);
+        setupMapTileStorage();
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setBuiltInZoomControls(true);
         map.setMultiTouchControls(true);
@@ -279,16 +314,22 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         cacheManager.downloadAreaAsync(this, bbox, 10, 19);  // Assuming permissions are already granted
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (map != null) {
+            map.onPause(); // pause the map view properly
+        }
+    }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        //this will refresh the osmdroid configuration on resuming.
-        //if you make changes to the configuration, use
-        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().save(this, prefs);
-        map.onPause();  //needed for compass, my location overlays, v6.0.0 and up
+    protected void onResume() {
+        super.onResume();
+        if (map != null) {
+            map.onResume(); // resume the map view
+        }
     }
+
 
     private void requestPermissionsIfNecessary(String[] permissions) {
         ArrayList<String> permissionsToRequest = new ArrayList<>();
