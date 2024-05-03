@@ -36,9 +36,13 @@ This project also uses [osmdroid](https://github.com/osmdroid/osmdroid) to integ
 
 ### Structure
 
+#### Java source files
 * com.chobitsfan.minigcs
     * ArduCopter: Handles specific functionalities related to the ArduCopter, an implementation detail for ArduPilot based drones.
-    * MainActivity: The main entry point of the application where the UI is initialized and user interactions are managed.
+    * _MainActivity:_ The main entry point of the application where the UI components are initialized and user interactions are managed. Most of the control logic is here.
     * MyAppConfig: Configuration class for managing global application settings.
-    * MyMavlinkWork: Manages MAVLink communications, essential for commands and controls exchanged with the UAV.
+    * _MyMavlinkWork:_ Manages MAVLink communications, contains all the builders for all the messages.
+         * All of the setMode() functions work as expected with the simulated and real UAV.
+         * setGPSOrigin() is a function we wrote because we were not sure if we need to set the GPS origin before the UAV will accept a waypoint. It does not look like we need to.
+         * sendGlobalWaypoint(lat, lon, alt) creates the message to send the MAV_CMD_NAV_WAYPOINT to the UAV with a specified altitude and 2D GPS coordinate. In the simulations we tried, this message was unsupported by GUIDED mode. However, when we tested on the physical quadcopter it appeared to accept the waypoint; After pressing the "send waypoint" button while the drone was hovering about 2 meters off the ground, it began rapidly heading towards the coordinate but crashed into the ground. 
     * MyUSBSerialListener: Handles USB serial communication for real-time data exchange with the UAV.
