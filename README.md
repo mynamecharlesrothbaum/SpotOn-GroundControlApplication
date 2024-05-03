@@ -1,6 +1,7 @@
 # SpotOn ground control application
 
-The SpotOn ground control application is an in-progress project that is built on top of chobitsfan's [MiniGroundControl](https://github.com/chobitsfan/MiniGroundControl/blob/master/README.md). It is tailored to be a UAV surveying tool which allows users to select locations on an integrated map and direct a quadcopter with a laser-gimbal attachment over those spots. 
+The SpotOn ground control application is an in-progress project that is built on top of chobitsfan's [MiniGroundControl](https://github.com/chobitsfan/MiniGroundControl/blob/master/README.md). It is tailored to be a UAV surveying tool which allows users to select locations on an integrated map and direct a quadcopter with a laser-gimbal attachment over those spots.
+This project is intended to be a more polished and practical version of the [proof-of-concept](https://github.com/jackhlay/DroneUI) we created in the Fall 2023 semester. 
 
 This project also uses [osmdroid](https://github.com/osmdroid/osmdroid) to integrate [Open Street Map](https://www.openstreetmap.org/about). 
 
