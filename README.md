@@ -16,6 +16,7 @@ This project uses [osmdroid](https://github.com/osmdroid/osmdroid) to integrate 
     3. Save the map tiles for a specified area to local memory so that they can be accessed offline.
 
 <img width="547" alt="Screen Shot 2024-05-03 at 2 19 56 PM" src="https://github.com/mynamecharlesrothbaum/SpotOnMiniGroundControl/assets/33434729/3a6aaaf8-9eaf-4f5c-b284-548b3b5a49b1">
+
 ### Usage
 
 #### Equipment Needed
@@ -27,5 +28,9 @@ This project uses [osmdroid](https://github.com/osmdroid/osmdroid) to integrate 
 2. Open the SpotOnMiniGroundControl application on your Android device. The app should automatically detect the serial USB antenna and ask for permission to use the device.
 3. Turn on the UAV. The app should automatically establish a connection and display the UAV's information within the app.
 
-
+#### Takeoff and land
+1. When the UAV is connected and has completed pre-flight calibration, press "set mode GUIDED".
+2. In guided mode press "force arm" to arm the throttle.
+3. When the motors begin spinning, press "takeoff" and the UAV will take off to 3 meters.
+4. If you press land, the UAV will descend and land from wherever it is currently flying. 
 
