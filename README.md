@@ -34,3 +34,11 @@ This project also uses [osmdroid](https://github.com/osmdroid/osmdroid) to integ
 3. When the motors begin spinning, press "takeoff" and the UAV will take off to 3 meters.
 4. If you press land, the UAV will descend and land from wherever it is currently flying. 
 
+### Structure
+
+* com.chobitsfan.minigcs
+    * ArduCopter: Handles specific functionalities related to the ArduCopter, an implementation detail for ArduPilot based drones.
+    * MainActivity: The main entry point of the application where the UI is initialized and user interactions are managed.
+    * MyAppConfig: Configuration class for managing global application settings.
+    * MyMavlinkWork: Manages MAVLink communications, essential for commands and controls exchanged with the UAV.
+    * MyUSBSerialListener: Handles USB serial communication for real-time data exchange with the UAV.
