@@ -47,3 +47,17 @@ This project also uses [osmdroid](https://github.com/osmdroid/osmdroid) to integ
          * sendGlobalWaypoint(lat, lon, alt) creates the message to send the MAV_CMD_NAV_WAYPOINT to the UAV with a specified altitude and 2D GPS coordinate. In the simulations we tried, this message was unsupported by GUIDED mode. However, when we tested on the physical quadcopter it appeared to accept the waypoint; After pressing the "send waypoint" button while the drone was hovering about 2 meters off the ground, it began rapidly heading towards the coordinate but crashed into the ground.
          * takeoff() and land() messages work as expected in simulation and real-life. The drone has to be armed in GUIDED mode to accept the takeoff message, however it can accept land() in any mode. 
     * MyUSBSerialListener: Handles USB serial communication for real-time data exchange with the UAV.
+
+### Future work
+We finished the Spring 2024 semester with an application that can connect to the UAV, collect and display information about it's current state, and send some basic messages to control the UAV's behavior:
+- [x] Connecting to the UAV through an android device and USB telemetry radio.
+- [x] Taking off and landing.
+- [x] Showing current UAV location on map.
+
+However there are still several components that need to be added before this application is useful:
+- [ ] Precisely select a point of interest on the map view and place a pin icon to mark that spot.
+- [ ] Direct the UAV to each selected waypoint safely and precisely.
+- [ ] Loiter at each waypoint until the user would like the UAV to go to the next point.
+- [ ] Control the laser gimbal attachment through the app.
+
+
