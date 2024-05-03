@@ -46,7 +46,7 @@ This project also uses [osmdroid](https://github.com/osmdroid/osmdroid) to integ
     * _MyMavlinkWork:_ Manages MAVLink communications, contains all the builders for all the messages.
          * All of the setMode() functions work as expected with the simulated and real UAV.
          * setGPSOrigin() is a function we wrote because we were not sure if we need to set the GPS origin before the UAV will accept a waypoint. It does not look like we need to.
-         * sendGlobalWaypoint(lat, lon, alt) creates the message to send the MAV_CMD_NAV_WAYPOINT to the UAV with a specified altitude and 2D GPS coordinate. In the simulations we tried, this message was unsupported by GUIDED mode. However, when we tested on the physical quadcopter it appeared to accept the waypoint; After pressing the "send waypoint" button while the drone was hovering about 2 meters off the ground, it began rapidly heading towards the coordinate but crashed into the ground.
+         * sendGlobalWaypoint(lat, lon, alt) creates the message to send the MAV_CMD_NAV_WAYPOINT to the UAV with a specified altitude and 2D GPS coordinate. In the simulations we tried, this message was unsupported by GUIDED mode. However, when we tested on the physical quadcopter it appeared to accept the waypoint; After pressing the "send waypoint" button while the drone was hovering about 2 meters off the ground, it began rapidly heading towards the coordinate but then crashed into the ground.
          * takeoff() and land() messages work as expected in simulation and real-life. The drone has to be armed in GUIDED mode to accept the takeoff message, however it can accept land() in any mode. 
     * MyUSBSerialListener: Handles USB serial communication for real-time data exchange with the UAV.
 
