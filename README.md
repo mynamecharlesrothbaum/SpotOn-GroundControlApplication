@@ -16,7 +16,16 @@ This project uses [osmdroid](https://github.com/osmdroid/osmdroid) to integrate 
     3. Save the map tiles for a specified area to local memory so that they can be accessed offline.
 
 <img width="547" alt="Screen Shot 2024-05-03 at 2 19 56 PM" src="https://github.com/mynamecharlesrothbaum/SpotOnMiniGroundControl/assets/33434729/3a6aaaf8-9eaf-4f5c-b284-548b3b5a49b1">
+### Usage
 
+#### Equipment Needed
+- Quadcopter equipped with ArduPilot flight controller, GPS antenna, and telemetry radio.
+- Serial USB telemetry radio
+- Android device with the SpotOnMiniGroundControl app installed
+#### Setup and Connection
+1. Connect the serial USB antenna to your Android device. This antenna will facilitate communication between your mobile device and the UAV.
+2. Open the SpotOnMiniGroundControl application on your Android device. The app should automatically detect the serial USB antenna and ask for permission to use the device.
+3. Turn on the UAV. The app should automatically establish a connection and display the UAV's information within the app.
 
 
 
